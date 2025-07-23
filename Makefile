@@ -9,7 +9,7 @@
 
 testImages:
 	@mkdir -p test
-	@./run_grepfuzz.sh > test/actual_output.txt
+	@find ./images -type f -iname '*.jpg' -print0 |./run_grepfuzz.sh -a > test/actual_output.txt
 	@if [ ! -f test/expected_output.txt ]; then \
 		echo "No expected output found. Please create test/expected_output.txt."; \
 		exit 1; \
@@ -21,3 +21,11 @@ clean:
 
 build:
 	cargo build
+
+# Test passthrough mode with null-terminated filelist
+test-null-filelist: build
+	@echo 'file1.jpg\0file2.jpg\0file3.jpg\0' > test/filelist_in.txt
+	@./target/debug/grepfuzz -p < test/filelist_in.txt > test/filelist_out.txt
+	@diff --text test/filelist_in.txt test/filelist_out.txt
+	@tr '\0' '|' < test/filelist_in.txt
+	@tr '\0' '|' < test/filelist_out.txt

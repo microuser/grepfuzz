@@ -29,6 +29,14 @@ struct Cli {
     #[arg(short = 's', long = "sharp", default_value_t = false, conflicts_with = "blur")]
     sharp: bool,
 
+    /// ASCII output: print all details for each file in a human-readable format
+    #[arg(short = 'a', long = "ascii", default_value_t = false)]
+    ascii: bool,
+
+    /// Passthrough mode: output stdin to stdout with zero-terminated records
+    #[arg(short = 'p', long = "passthrough", default_value_t = false)]
+    passthrough: bool,
+
     #[arg(value_enum, long, default_value_t = Mode::Blur)]
     mode: Mode,
 }
@@ -92,6 +100,25 @@ fn main() -> io::Result<()> {
     }
     
 
+    // Passthrough mode: copy stdin to stdout, zero-terminated, then print newline and clear buffer
+    if cli.passthrough {
+        let mut reader = stdin.lock();
+        let mut buffer = Vec::new();
+        loop {
+            buffer.clear();
+            let bytes_read = reader.read_until(b'\0', &mut buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+            if !buffer.is_empty() {
+                stdout.write_all(&buffer)?;
+            }
+        }
+        //println!(); // Finish with a line return
+        buffer.clear();
+        return Ok(());
+    }
+
     // Otherwise, process stdin as before
     let mut reader = stdin.lock();
     let mut buffer = Vec::new();
@@ -110,12 +137,25 @@ fn main() -> io::Result<()> {
             Err(_) => continue,
         };
         let path = Path::new(&path_str);
-
         match process_image(path, threshold) {
-            Ok((is_blurry, _variance, _size, _width, _height, _focal)) => {
+            Ok((is_blurry, variance, size, width, height, focal)) => {
                 if (blur_mode && is_blurry) || (!blur_mode && !is_blurry) {
-                    stdout.write_all(path_str.as_bytes())?;
-                    stdout.write_all(&[0])?;
+                    if cli.ascii {
+                        let sharpness = if is_blurry { "blurry" } else { "sharp" };
+                        println!(
+                            "File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Variance: {:.6}\n  {}\n  Focal Length: {}\n",
+                            path_str,
+                            size,
+                            width,
+                            height,
+                            variance,
+                            sharpness,
+                            focal.unwrap_or_else(|| "N/A".to_string())
+                        );
+                    } else {
+                        stdout.write_all(path_str.as_bytes())?;
+                        stdout.write_all(&[0])?;
+                    }
                 }
             }
             Err(e) => {
