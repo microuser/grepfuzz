@@ -9,17 +9,10 @@ use image::{ImageBuffer, Luma};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-#[derive(clap::ValueEnum, Clone, Debug)]
-enum Mode {
-    Blur,
-    Sharp,
-}
-
 struct Cli {
     /// Input file to analyze
     #[arg(short, long)]
     file: Option<String>,
-
 
     /// Run in debug mode (synthetic images)
     #[arg(long)]
@@ -35,6 +28,15 @@ struct Cli {
 
     #[arg(short = 's', long = "sharp", default_value_t = false, conflicts_with = "blur")]
     sharp: bool,
+
+    #[arg(value_enum, long, default_value_t = Mode::Blur)]
+    mode: Mode,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum Mode {
+    Blur,
+    Sharp,
 }
 
 fn main() -> io::Result<()> {

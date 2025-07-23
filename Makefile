@@ -18,3 +18,6 @@ testImages:
 
 clean:
 	rm -rf test target
+
+build:
+	cargo build
