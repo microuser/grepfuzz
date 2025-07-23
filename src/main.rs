@@ -14,9 +14,6 @@ struct Cli {
     #[arg(short, long)]
     file: Option<String>,
 
-    /// Print help
-    #[arg(short = 'h', long = "help", action = clap::ArgAction::Help)]
-    help: Option<bool>,
 
     /// Run in debug mode (synthetic images)
     #[arg(long)]
