@@ -25,9 +25,14 @@ run-synthetic-checkerboard:
 run-synthetic-white:
 	cargo run -- --synthetic-white -v
 
+run-file-find:
+	find ./images -type f -iname '*.jpg' -print0 | cargo run -- --ascii --debug
+
+
 run-file-verbose:
-	@if [ -z "$$FILE" ]; then echo "Usage: make run-file-verbose FILE=your_image.jpg"; exit 1; fi
-	cargo run -- -f $$FILE --verbose
+	@if [ -z "./images/image-26.jpg" ]; then echo "Usage: make run-file-verbose FILE=./images/image-26.jpg"; exit 1; fi
+	cargo run -- -f "./images/image-26.jpg" --verbose
+
 
 # Test passthrough mode with null-terminated filelist
 test-null-filelist: build

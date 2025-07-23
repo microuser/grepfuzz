@@ -276,6 +276,31 @@ fn debug_blur_analysis(img: &ImageBuffer<Luma<u8>, Vec<u8>>, threshold: f64) {
     println!("[DEBUG] Result: {}", if is_blurry {"BLURRY"} else {"SHARP"});
 }
 
+// Helper for testing and main: like debug_blur_analysis but returns values
+fn analyze_blur_variance(img: &ImageBuffer<Luma<u8>, Vec<u8>>, threshold: f64) -> (f64, bool) {
+    let width = img.width();
+    let height = img.height();
+    let img_f32: ImageBuffer<Luma<f32>, Vec<f32>> = ImageBuffer::from_fn(width, height, |x, y| {
+        Luma([img.get_pixel(x, y)[0] as f32])
+    });
+    let kernel = [0f32, 1.0, 0.0, 1.0, -4.0, 1.0, 0.0, 1.0, 0.0];
+    let lap: ImageBuffer<Luma<f32>, Vec<f32>> = imageops::filter3x3(&img_f32, &kernel);
+    let pixels = lap.into_vec();
+    let n = pixels.len() as f64;
+    let mut mean = 0.0f64;
+    for &p in &pixels {
+        mean += p as f64;
+    }
+    mean /= n;
+    let mut variance = 0.0f64;
+    for &p in &pixels {
+        variance += (p as f64 - mean).powi(2);
+    }
+    variance /= n;
+    let is_blurry = variance < threshold;
+    (variance, is_blurry)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,30 +353,31 @@ mod tests {
         assert!(!is_blurry, "Large-block checkerboard should be classified as sharp");
     }
 
-    // Helper for testing: like debug_blur_analysis but returns values
-    fn analyze_blur_variance(img: &ImageBuffer<Luma<u8>, Vec<u8>>, threshold: f64) -> (f64, bool) {
-        let width = img.width();
-        let height = img.height();
-        let img_f32: ImageBuffer<Luma<f32>, Vec<f32>> = ImageBuffer::from_fn(width, height, |x, y| {
-            Luma([img.get_pixel(x, y)[0] as f32])
-        });
-        let kernel = [0f32, 1.0, 0.0, 1.0, -4.0, 1.0, 0.0, 1.0, 0.0];
-        let lap: ImageBuffer<Luma<f32>, Vec<f32>> = imageops::filter3x3(&img_f32, &kernel);
-        let pixels = lap.into_vec();
-        let n = pixels.len() as f64;
-        let mut mean = 0.0f64;
-        for &p in &pixels {
-            mean += p as f64;
-        }
-        mean /= n;
-        let mut variance = 0.0f64;
-        for &p in &pixels {
-            variance += (p as f64 - mean).powi(2);
-        }
-        variance /= n;
-        let is_blurry = variance < threshold;
-        (variance, is_blurry)
+// Helper for testing and main: like debug_blur_analysis but returns values
+fn analyze_blur_variance(img: &ImageBuffer<Luma<u8>, Vec<u8>>, threshold: f64) -> (f64, bool) {
+    let width = img.width();
+    let height = img.height();
+    let img_f32: ImageBuffer<Luma<f32>, Vec<f32>> = ImageBuffer::from_fn(width, height, |x, y| {
+        Luma([img.get_pixel(x, y)[0] as f32])
+    });
+    let kernel = [0f32, 1.0, 0.0, 1.0, -4.0, 1.0, 0.0, 1.0, 0.0];
+    let lap: ImageBuffer<Luma<f32>, Vec<f32>> = imageops::filter3x3(&img_f32, &kernel);
+    let pixels = lap.into_vec();
+    let n = pixels.len() as f64;
+    let mut mean = 0.0f64;
+    for &p in &pixels {
+        mean += p as f64;
     }
+    mean /= n;
+    let mut variance = 0.0f64;
+    for &p in &pixels {
+        variance += (p as f64 - mean).powi(2);
+    }
+    variance /= n;
+    let is_blurry = variance < threshold;
+    (variance, is_blurry)
+}
+
 }
 
 fn extract_focal_length(path: &Path) -> Option<String> {
