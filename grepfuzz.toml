@@ -1,5 +1,0 @@
-# grepfuzz configuration file
-# Example:
-# threshold = 120.0
-
-threshold = 100.0

@@ -6,44 +6,33 @@ use clap::{Parser, CommandFactory};
 use rexif::{parse_file, ExifTag};
 use image::imageops;
 use image::{ImageBuffer, Luma};
-use rand::Rng;
 
 #[derive(Parser, Debug)]
-#[command(name = "blurdetect")]
-#[command(about = "Detect blurry images for automation or inspection.")]
-#[command(long_about = "Detect blurry images from zero-terminated stdin or a specified file.\n\nOPTIONS:\n    -f, --file <FILENAME>        Specify a file to check for blurriness\n    -t, --threshold <FLOAT>      Blur threshold (variance below this is blurry) [default: 100.0]\n    -h, --human-readable         Enable human-readable output\n    --debug                     Run in debug mode with synthetic images\n    --help                      Print help information\n")]
+#[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Specify a file to check for blurriness
-    #[arg(short = 'f', long = "file")]
+    /// Input file to analyze
+    #[arg(short, long)]
     file: Option<String>,
 
-    /// Enable human-readable output
-    #[arg(short = 'h', long = "human-readable")]
-    human: bool,
+    /// Print help
+    #[arg(short = 'h', long = "help", action = clap::ArgAction::Help)]
+    help: Option<bool>,
 
-    /// Blur threshold (variance below this is blurry)
-    #[arg(short = 't', long, default_value_t = 100.0)]
-    threshold: f64,
-
-    /// Enable debug mode (synthetic images)
+    /// Run in debug mode (synthetic images)
     #[arg(long)]
     debug: bool,
+
+    /// Blur threshold
+    #[arg(short = 't', long = "threshold")]
+    threshold: Option<f64>,
 }
 
 fn main() -> io::Result<()> {
     let cli = Cli::parse();
     let mut stdout = io::stdout();
 
-    // Load config file for threshold if present
-    let mut threshold = cli.threshold;
-    let config = config::Config::builder()
-        .add_source(config::File::with_name("grepfuzz.toml").required(false))
-        .build();
-    if let Ok(cfg) = config {
-        if let Ok(t) = cfg.get_float("threshold") {
-            threshold = t as f64;
-        }
-    }
+    // Use threshold from CLI or default
+    let threshold = cli.threshold.unwrap_or(0.1);
 
     // Debug mode: synthetic images
     if cli.debug {
@@ -81,19 +70,7 @@ fn main() -> io::Result<()> {
         let path = Path::new(&filename);
         match process_image(path, threshold) {
             Ok((is_blurry, variance, size, width, height, focal)) => {
-                if cli.human {
-                    let focal_str = focal.unwrap_or_else(|| "N/A".to_string());
-                    writeln!(
-                        stdout,
-                        "{}: {} | Variance: {:.2} | Size: {} bytes | Resolution: {}x{} | Focal Length: {}",
-                        filename,
-                        if is_blurry {"BLURRY"} else {"SHARP"},
-                        variance, size, width, height, focal_str
-                    )?;
-                } else if is_blurry {
-                    stdout.write_all(filename.as_bytes())?;
-                    stdout.write_all(&[0])?;
-                }
+                println!("{}\t{}\t{:.6}\t{}", path.display(), is_blurry, variance, focal.unwrap_or("N/A".to_string()));
             }
             Err(e) => {
                 eprintln!("Error processing {}: {}", filename, e);
@@ -123,17 +100,10 @@ fn main() -> io::Result<()> {
         match process_image(path, threshold) {
             Ok((is_blurry, variance, size, width, height, focal)) => {
                 if is_blurry {
-                    if cli.human {
-                        let focal_str = focal.unwrap_or_else(|| "N/A".to_string());
-                        writeln!(
-                            stdout,
-                            "{}: BLURRY | Variance: {:.2} | Size: {} bytes | Resolution: {}x{} | Focal Length: {}",
-                            path_str, variance, size, width, height, focal_str
-                        )?;
-                    } else {
-                        stdout.write_all(path_str.as_bytes())?;
-                        stdout.write_all(&[0])?;
-                    }
+                    println!("{}\t{}\t{:.6}\t{}", path.display(), is_blurry, variance, focal.unwrap_or("N/A".to_string()));
+                } else {
+                    stdout.write_all(path_str.as_bytes())?;
+                    stdout.write_all(&[0])?;
                 }
             }
             Err(e) => {
@@ -236,6 +206,41 @@ mod tests {
         let (variance, is_blurry) = analyze_blur_variance(&white_img, threshold);
         assert!(variance.abs() < 1e-6, "Variance should be near zero for solid white, got {}", variance);
         assert!(is_blurry, "Solid white image should be classified as blurry");
+    }
+
+    #[test]
+    fn test_sharp_on_checkerboard() {
+        // Create a 100x100 checkerboard image
+        let width = 100;
+        let height = 100;
+        let checkerboard_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |x, y| {
+            if (x + y) % 2 == 0 {
+                Luma([0]) // black
+            } else {
+                Luma([255]) // white
+            }
+        });
+        let threshold = 0.1;
+        let (_variance, is_blurry) = analyze_blur_variance(&checkerboard_img, threshold);
+        assert!(!is_blurry, "Checkerboard image should be classified as sharp");
+    }
+
+    #[test]
+    fn test_sharp_on_large_checkerboard() {
+        // Create a 100x100 checkerboard with 10x10 pixel squares
+        let width = 100;
+        let height = 100;
+        let block = 10;
+        let checkerboard_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |x, y| {
+            if ((x / block) + (y / block)) % 2 == 0 {
+                Luma([0]) // black
+            } else {
+                Luma([255]) // white
+            }
+        });
+        let threshold = 0.1;
+        let (_variance, is_blurry) = analyze_blur_variance(&checkerboard_img, threshold);
+        assert!(!is_blurry, "Large-block checkerboard should be classified as sharp");
     }
 
     // Helper for testing: like debug_blur_analysis but returns values
