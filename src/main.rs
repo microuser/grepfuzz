@@ -1,17 +1,21 @@
 use std::io::{self, BufRead, Write};
-use std::fs::File;
-use std::io::BufReader;
+
 use std::path::Path;
 
-use clap::Parser;
-use exif::{In, Reader, Tag};
+use clap::{Parser, CommandFactory};
+use rexif::{parse_file, ExifTag};
 use image::imageops;
 use image::{ImageBuffer, Luma};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(name = "blurdetect")]
-#[command(about = "Detect blurry images from zero-terminated stdin input")]
+#[command(about = "Detect blurry images for automation or inspection.")]
+#[command(long_about = "Detect blurry images from zero-terminated stdin or a specified file.\n\nOPTIONS:\n    -f, --file <FILENAME>        Specify a file to check for blurriness\n    -t, --threshold <FLOAT>      Blur threshold (variance below this is blurry) [default: 100.0]\n    -h, --human-readable         Enable human-readable output\n    --help                      Print help information\n")]
 struct Cli {
+    /// Specify a file to check for blurriness
+    #[arg(short = 'f', long = "file")]
+    file: Option<String>,
+
     /// Enable human-readable output
     #[arg(short = 'h', long = "human-readable")]
     human: bool,
@@ -23,12 +27,49 @@ struct Cli {
 
 fn main() -> io::Result<()> {
     let cli = Cli::parse();
-
-    let stdin = io::stdin();
-    let mut reader = stdin.lock();
-    let mut buffer = Vec::new();
     let mut stdout = io::stdout();
 
+    // If -h/--help is passed, clap will print help and exit automatically.
+    // If no stdin and no file argument, print help and exit.
+    let stdin = io::stdin();
+    let is_stdin_tty = atty::is(atty::Stream::Stdin);
+
+    if cli.file.is_none() && is_stdin_tty {
+        // No file argument and no piped stdin: print help and exit
+        Cli::command().print_help().unwrap();
+        println!();
+        return Ok(());
+    }
+
+    // If file argument is provided, process that file
+    if let Some(filename) = cli.file {
+        let path = Path::new(&filename);
+        match process_image(path, cli.threshold) {
+            Ok((is_blurry, variance, size, width, height, focal)) => {
+                if cli.human {
+                    let focal_str = focal.unwrap_or_else(|| "N/A".to_string());
+                    writeln!(
+                        stdout,
+                        "{}: {} | Variance: {:.2} | Size: {} bytes | Resolution: {}x{} | Focal Length: {}",
+                        filename,
+                        if is_blurry {"BLURRY"} else {"SHARP"},
+                        variance, size, width, height, focal_str
+                    )?;
+                } else if is_blurry {
+                    stdout.write_all(filename.as_bytes())?;
+                    stdout.write_all(&[0])?;
+                }
+            }
+            Err(e) => {
+                eprintln!("Error processing {}: {}", filename, e);
+            }
+        }
+        return Ok(());
+    }
+
+    // Otherwise, process stdin as before
+    let mut reader = stdin.lock();
+    let mut buffer = Vec::new();
     loop {
         buffer.clear();
         let bytes_read = reader.read_until(b'\0', &mut buffer)?;
@@ -65,7 +106,6 @@ fn main() -> io::Result<()> {
             }
         }
     }
-
     Ok(())
 }
 
@@ -114,10 +154,11 @@ fn process_image(
 }
 
 fn extract_focal_length(path: &Path) -> Option<String> {
-    let file = File::open(path).ok()?;
-    let mut bufreader = BufReader::new(file);
-    let exifreader = Reader::new();
-    let exif = exifreader.read_from_container(&mut bufreader).ok()?;
-    exif.get_field(Tag::FocalLength, In::PRIMARY)
-        .map(|field| field.display_value().to_string())
+    let exif = parse_file(path).ok()?;
+    for entry in exif.entries {
+        if entry.tag == ExifTag::FocalLength {
+            return Some(entry.value_more_readable.to_string());
+        }
+    }
+    None
 }
