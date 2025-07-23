@@ -19,8 +19,15 @@ testImages:
 clean:
 	rm -rf test target
 
-build:
-	cargo build
+run-synthetic-checkerboard:
+	cargo run -- --synthetic-checkerboard --verbose
+
+run-synthetic-white:
+	cargo run -- --synthetic-white -v
+
+run-file-verbose:
+	@if [ -z "$$FILE" ]; then echo "Usage: make run-file-verbose FILE=your_image.jpg"; exit 1; fi
+	cargo run -- -f $$FILE --verbose
 
 # Test passthrough mode with null-terminated filelist
 test-null-filelist: build

@@ -11,12 +11,20 @@ use image::{ImageBuffer, Luma};
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Input file to analyze
-    #[arg(short, long)]
+    #[arg(short, long, conflicts_with_all = ["synthetic_checkerboard", "synthetic_white", "passthrough"])]
     file: Option<String>,
 
-    /// Run in debug mode (synthetic images)
-    #[arg(long)]
-    debug: bool,
+    /// Generate and analyze a synthetic checkerboard image
+    #[arg(long = "synthetic-checkerboard", conflicts_with_all = ["file", "synthetic_white", "passthrough"])]
+    synthetic_checkerboard: bool,
+
+    /// Generate and analyze a synthetic solid white image
+    #[arg(long = "synthetic-white", conflicts_with_all = ["file", "synthetic_checkerboard", "passthrough"])]
+    synthetic_white: bool,
+
+    /// Verbose (human-readable debug) output
+    #[arg(short = 'v', long = "verbose", default_value_t = false)]
+    verbose: bool,
 
     /// Blur threshold
     #[arg(short = 't', long = "threshold")]
@@ -34,7 +42,7 @@ struct Cli {
     ascii: bool,
 
     /// Passthrough mode: output stdin to stdout with zero-terminated records
-    #[arg(short = 'p', long = "passthrough", default_value_t = false)]
+    #[arg(short = 'p', long = "passthrough", default_value_t = false, conflicts_with_all = ["file", "synthetic_checkerboard", "synthetic_white"])]
     passthrough: bool,
 
     #[arg(value_enum, long, default_value_t = Mode::Blur)]
@@ -54,22 +62,39 @@ fn main() -> io::Result<()> {
     // Use threshold from CLI or default
     let threshold = cli.threshold.unwrap_or(0.1);
 
-    // Debug mode: synthetic images
-    if cli.debug {
-        use image::{ImageBuffer, Luma};
-        println!("[DEBUG] Running in debug mode: generating synthetic images");
-        // Static (random noise) image
+    // Synthetic image: checkerboard
+    if cli.synthetic_checkerboard {
         let width = 256;
         let height = 256;
-        let mut rng = rand::thread_rng();
-        let static_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |_x, _y| {
-            Luma([rand::Rng::gen::<u8>(&mut rng)])
+        let checkerboard_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |x, y| {
+            if (x + y) % 2 == 0 {
+                Luma([0])
+            } else {
+                Luma([255])
+            }
         });
+        if cli.verbose {
+            println!("[VERBOSE] Analyzing synthetic checkerboard image...");
+            debug_blur_analysis(&checkerboard_img, threshold);
+        } else {
+            let (variance, is_blurry) = analyze_blur_variance(&checkerboard_img, threshold);
+            println!("Checkerboard: blurry={} variance={:.6}", is_blurry, variance);
+        }
+        return Ok(());
+    }
+
+    // Synthetic image: solid white
+    if cli.synthetic_white {
+        let width = 256;
+        let height = 256;
         let white_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_pixel(width, height, Luma([255]));
-        println!("[DEBUG] Analyzing static noise image...");
-        debug_blur_analysis(&static_img, threshold);
-        println!("[DEBUG] Analyzing pure white image...");
-        debug_blur_analysis(&white_img, threshold);
+        if cli.verbose {
+            println!("[VERBOSE] Analyzing synthetic white image...");
+            debug_blur_analysis(&white_img, threshold);
+        } else {
+            let (variance, is_blurry) = analyze_blur_variance(&white_img, threshold);
+            println!("White: blurry={} variance={:.6}", is_blurry, variance);
+        }
         return Ok(());
     }
 
@@ -90,7 +115,16 @@ fn main() -> io::Result<()> {
         let path = Path::new(&filename);
         match process_image(path, threshold) {
             Ok((is_blurry, variance, size, width, height, focal)) => {
-                println!("File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Blurry: {}\n  Variance: {:.6}\n  Focal Length: {}\n", path.display(), size, width, height, is_blurry, variance, focal.unwrap_or("N/A".to_string()));
+                if cli.verbose {
+                    println!("[VERBOSE] File: {}", path.display());
+                    println!("[VERBOSE] Size: {} bytes", size);
+                    println!("[VERBOSE] Dimensions: {}x{}", width, height);
+                    println!("[VERBOSE] Blurry: {}", is_blurry);
+                    println!("[VERBOSE] Variance: {:.6}", variance);
+                    println!("[VERBOSE] Focal Length: {}", focal.clone().unwrap_or("N/A".to_string()));
+                } else {
+                    println!("File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Blurry: {}\n  Variance: {:.6}\n  Focal Length: {}\n", path.display(), size, width, height, is_blurry, variance, focal.unwrap_or("N/A".to_string()));
+                }
             }
             Err(e) => {
                 eprintln!("Error processing {}: {}", filename, e);
@@ -98,7 +132,6 @@ fn main() -> io::Result<()> {
         }
         return Ok(());
     }
-    
 
     // Passthrough mode: copy stdin to stdout, zero-terminated, then print newline and clear buffer
     if cli.passthrough {
@@ -114,7 +147,6 @@ fn main() -> io::Result<()> {
                 stdout.write_all(&buffer)?;
             }
         }
-        //println!(); // Finish with a line return
         buffer.clear();
         return Ok(());
     }
@@ -123,6 +155,7 @@ fn main() -> io::Result<()> {
     let mut reader = stdin.lock();
     let mut buffer = Vec::new();
     let blur_mode = cli.blur || (!cli.blur && !cli.sharp); // default to blur if neither specified
+    // ... (rest unchanged)
     loop {
         buffer.clear();
         let bytes_read = reader.read_until(b'\0', &mut buffer)?;
