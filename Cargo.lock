@@ -198,18 +198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blurdetect"
-version = "0.1.0"
-dependencies = [
- "atty",
- "clap",
- "config",
- "image",
- "rand",
- "rexif",
-]
-
-[[package]]
 name = "built"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -513,6 +501,18 @@ checksum = "4ae047235e33e2829703574b54fdec96bfbad892062d97fed2f76022287de61b"
 dependencies = [
  "color_quant",
  "weezl",
+]
+
+[[package]]
+name = "grepfuzz"
+version = "0.1.0"
+dependencies = [
+ "atty",
+ "clap",
+ "config",
+ "image",
+ "rand",
+ "rexif",
 ]
 
 [[package]]

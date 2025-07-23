@@ -25,3 +25,15 @@ For human-readable output:
 find . -name "*.jpg" -print0 | blurdetect -h
 
 This tool supports common image formats like JPEG and PNG. Errors (e.g., invalid images) are logged to stderr, and the image is skipped.
+
+## Usage examples
+
+**Blurry only (default):**
+```sh
+find ./images/ -iname '*.jpg' -print0 | ./target/debug/grepfuzz
+```
+
+**Sharp only:**
+```sh
+find ./images/ -iname '*.jpg' -print0 | ./target/debug/grepfuzz -s
+```

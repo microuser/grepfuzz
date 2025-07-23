@@ -9,6 +9,12 @@ use image::{ImageBuffer, Luma};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum Mode {
+    Blur,
+    Sharp,
+}
+
 struct Cli {
     /// Input file to analyze
     #[arg(short, long)]
@@ -22,6 +28,13 @@ struct Cli {
     /// Blur threshold
     #[arg(short = 't', long = "threshold")]
     threshold: Option<f64>,
+
+    /// Filter mode: -b (blur-pass, default) or -s (sharp-pass)
+    #[arg(short = 'b', long = "blur", default_value_t = true, conflicts_with = "sharp")]
+    blur: bool,
+
+    #[arg(short = 's', long = "sharp", default_value_t = false, conflicts_with = "blur")]
+    sharp: bool,
 }
 
 fn main() -> io::Result<()> {
@@ -80,6 +93,7 @@ fn main() -> io::Result<()> {
     // Otherwise, process stdin as before
     let mut reader = stdin.lock();
     let mut buffer = Vec::new();
+    let blur_mode = cli.blur || (!cli.blur && !cli.sharp); // default to blur if neither specified
     loop {
         buffer.clear();
         let bytes_read = reader.read_until(b'\0', &mut buffer)?;
@@ -96,10 +110,8 @@ fn main() -> io::Result<()> {
         let path = Path::new(&path_str);
 
         match process_image(path, threshold) {
-            Ok((is_blurry, variance, size, width, height, focal)) => {
-                if is_blurry {
-                    println!("File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Blurry: {}\n  Variance: {:.6}\n  Focal Length: {}\n", path.display(), size, width, height, is_blurry, variance, focal.unwrap_or("N/A".to_string()));
-                } else {
+            Ok((is_blurry, _variance, _size, _width, _height, _focal)) => {
+                if (blur_mode && is_blurry) || (!blur_mode && !is_blurry) {
                     stdout.write_all(path_str.as_bytes())?;
                     stdout.write_all(&[0])?;
                 }

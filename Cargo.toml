@@ -1,10 +1,10 @@
 [package]
-name = "blurdetect"
+name = "grepfuzz"
 version = "0.1.0"
 edition = "2021"
 description = "A lightweight CLI tool for detecting blurry images using Laplacian variance."
 license = "MIT"
-repository = "https://github.com/microuser/blurdetect"  # Assuming a repo; adjust as needed
+repository = "https://github.com/microuser/grepfuzz"  # Assuming a repo; adjust as needed
 authors = ["@microuser", "Claude Sonnet 4"]
 
 [dependencies]
