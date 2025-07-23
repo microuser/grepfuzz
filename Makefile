@@ -5,7 +5,7 @@
 
 # The expected output file should be created manually by the user and placed as test/expected_output.txt
 
-.PHONY: testImages clean
+.PHONY: testImages clean run-synthetic-checkerboard run-synthetic-white run-file-find run-file-verbose run-null-filelist
 
 testImages:
 	@mkdir -p test
@@ -26,13 +26,17 @@ run-synthetic-white:
 	cargo run -- --synthetic-white -v
 
 run-file-find:
-	find ./images -type f -iname '*.jpg' -print0 | cargo run -- --ascii --debug
-
+	find ./images -type f -iname '*.jpg' -print0 | cargo run -- --ascii --verbose
 
 run-file-verbose:
 	@if [ -z "./images/image-26.jpg" ]; then echo "Usage: make run-file-verbose FILE=./images/image-26.jpg"; exit 1; fi
 	cargo run -- -f "./images/image-26.jpg" --verbose
 
+run-photoboothblack:
+	cargo run -- --ascii -f ./images/photoboothblack.jpg
+
+build-opencv:
+	LDFLAGS="-L/opt/homebrew/opt/llvm/lib" CPPFLAGS="-I/opt/homebrew/opt/llvm/include" cargo build
 
 # Test passthrough mode with null-terminated filelist
 test-null-filelist: build

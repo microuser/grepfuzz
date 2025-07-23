@@ -11,6 +11,10 @@
             "program": "${workspaceFolder}/target/debug/grepfuzz",
             "args": ["-f", "./images/images-26.jpg", "--human"],
             "cwd": "${workspaceFolder}",
+            "env": {
+                "LDFLAGS": "-L/opt/homebrew/opt/llvm/lib",
+                "CPPFLAGS": "-I/opt/homebrew/opt/llvm/include"
+            },
             "stopOnEntry": false,
             "sourceLanguages": ["rust"]
         },
