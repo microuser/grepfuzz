@@ -70,7 +70,7 @@ fn main() -> io::Result<()> {
         let path = Path::new(&filename);
         match process_image(path, threshold) {
             Ok((is_blurry, variance, size, width, height, focal)) => {
-                println!("{}\t{}\t{:.6}\t{}", path.display(), is_blurry, variance, focal.unwrap_or("N/A".to_string()));
+                println!("File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Blurry: {}\n  Variance: {:.6}\n  Focal Length: {}\n", path.display(), size, width, height, is_blurry, variance, focal.unwrap_or("N/A".to_string()));
             }
             Err(e) => {
                 eprintln!("Error processing {}: {}", filename, e);
@@ -78,6 +78,7 @@ fn main() -> io::Result<()> {
         }
         return Ok(());
     }
+    
 
     // Otherwise, process stdin as before
     let mut reader = stdin.lock();
@@ -100,7 +101,7 @@ fn main() -> io::Result<()> {
         match process_image(path, threshold) {
             Ok((is_blurry, variance, size, width, height, focal)) => {
                 if is_blurry {
-                    println!("{}\t{}\t{:.6}\t{}", path.display(), is_blurry, variance, focal.unwrap_or("N/A".to_string()));
+                    println!("File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Blurry: {}\n  Variance: {:.6}\n  Focal Length: {}\n", path.display(), size, width, height, is_blurry, variance, focal.unwrap_or("N/A".to_string()));
                 } else {
                     stdout.write_all(path_str.as_bytes())?;
                     stdout.write_all(&[0])?;
