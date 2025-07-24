@@ -1,4 +1,4 @@
-use crate::blur_detector::BlurResult;
+use crate::blur_result::BlurResult;
 use std::io::{self, Write};
 
 pub fn print_results<W: Write>(

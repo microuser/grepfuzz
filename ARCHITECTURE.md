@@ -135,11 +135,6 @@ Below is a more detailed diagram with key structs, functions, and data types for
 - "Data Out" shows the main data type(s) passed to the next layer.
 - This diagram gives programmers a quick reference to the key types and functions per layer.
 
-
-# Elaboration of Detail
-
-## Layered Architecture of `grepfuzz`
-
 ### 1. Configuration Layer
 - **Purpose:** Handles configuration loading and defaults.
 - **Key Structs:**

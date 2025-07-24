@@ -12,6 +12,9 @@ pub mod blur_opencv;
 pub mod blur_result;
 pub mod blur_tenengrad;
 pub mod config;
+pub mod detector_helpers;
+pub mod output_helpers;
+pub mod image_source_helpers;
 
 use std::path::Path;
 use crate::blur_detector::BlurDetector;

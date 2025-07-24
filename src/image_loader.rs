@@ -1,6 +1,7 @@
 use image::{ImageBuffer, Luma, ImageReader};
 use std::io::{self, Read};
 
+#[derive(Clone)]
 pub enum ImageSource {
     SyntheticCheckerboard { width: u32, height: u32 },
     SyntheticWhite { width: u32, height: u32 },
@@ -44,3 +45,40 @@ impl ImageSource {
     }
 }
 
+/// Special image analysis cases (synthetic checkerboard, white, stdin-bytes)
+pub enum ImageInputMode {
+    SyntheticCheckerboard,
+    SyntheticWhite,
+    StdinBytes,
+    File(String),
+}
+
+/// Returns (ImageSource, img) if input is present, otherwise None
+pub fn analyze_image_input(
+    mode: ImageInputMode,
+    cli: &crate::cli::Cli,
+    laplacian_threshold: f64,
+) -> Option<(ImageSource, image::ImageBuffer<image::Luma<u8>, Vec<u8>>)> {
+    match mode {
+        ImageInputMode::SyntheticCheckerboard => {
+            let source = ImageSource::SyntheticCheckerboard { width: 256, height: 256 };
+            let img = crate::image_loader::load_image(source.clone()).ok()?;
+            Some((source, img))
+        },
+        ImageInputMode::SyntheticWhite => {
+            let source = ImageSource::SyntheticWhite { width: 256, height: 256 };
+            let img = crate::image_loader::load_image(source.clone()).ok()?;
+            Some((source, img))
+        },
+        ImageInputMode::StdinBytes => {
+            let source = ImageSource::Stdin;
+            let img = crate::image_loader::load_image(source.clone()).ok()?;
+            Some((source, img))
+        },
+        ImageInputMode::File(ref filename) => {
+            let source = ImageSource::File(filename.clone());
+            let img = crate::image_loader::load_image(source.clone()).ok()?;
+            Some((source, img))
+        },
+    }
+}

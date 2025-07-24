@@ -80,3 +80,25 @@ This will align the codebase with the layered architecture described in ARCHITEC
 All major modularization steps are complete and the codebase now aligns with the intended layered architecture.
 
 These steps enforce modularity, improve maintainability, and follow best practices for Rust projects that provide both a binary and a library interface.
+
+## Modular Call Stack and Flow (2025-07-24)
+
+The current architecture is highly modular. The `main.rs` entrypoint is responsible only for CLI parsing and orchestration. All core logic is delegated to the following helpers and modules:
+
+- **Image Input Handling**: `analyze_image_input` (in `image_loader.rs`) selects and loads images using the `ImageInputMode` enum, supporting synthetic, stdin, and file sources.
+- **Detector Construction**: `build_detectors` (in `detector_helpers.rs`) constructs all enabled blur detectors.
+- **Image Processing**: `process_image` (in `lib.rs`) applies all detectors to the loaded image.
+- **Output Formatting**: `print_results` (in `output_helpers.rs`) formats and prints results.
+
+### Branching Call Stack from main
+
+1. `main()` parses CLI args using `Cli`.
+2. Calls `GrepfuzzConfig::from_cli` to merge config.
+3. Determines the input mode and calls `analyze_image_input` (for synthetic, stdin, or file) to get `(ImageSource, ImageBuffer)`.
+4. Calls `build_detectors` to get a list of enabled detectors.
+5. Calls `process_image` with the image and detectors.
+6. Calls `print_results` to output the results.
+
+Each step is handled by a dedicated module, ensuring maintainability and clarity. All new features or input types can be added by extending the relevant helper module.
+
+These steps enforce modularity, improve maintainability, and follow best practices for Rust projects that provide both a binary and a library interface.

@@ -1,12 +1,9 @@
-mod blur_detector;
-mod blur_laplacian;
-mod blur_tenengrad;
-mod blur_opencv;
-mod config;
-mod image_loader;
-mod blur_result;
+use grepfuzz::process_image;
+use grepfuzz::image_analysis::{debug_blur_analysis, analyze_blur_variance};
+use grepfuzz::image_loader::{ImageInputMode, analyze_image_input, load_image};
+use grepfuzz::detector_helpers;
+use grepfuzz::output_helpers;
 
-use grepfuzz::process_image; // Use process_image from lib.rs
 use clap::Parser;
 use clap::CommandFactory;
 use std::io;
@@ -14,82 +11,16 @@ use std::io::BufRead;
 use std::io::Write;
 use std::path::Path;
 use image::imageops;
-use blur_result::BlurResult;
 use rexif::{parse_file, ExifTag};
-
-use blur_detector::BlurDetector;
-use blur_laplacian::LaplacianVarianceDetector;
-use blur_tenengrad::TenengradDetector;
-use blur_opencv::OpenCvLaplacianDetector;
-
-use image::{ImageBuffer, Luma};
-use config::GrepfuzzConfig;
-mod detector_helpers;
-mod image_source_helpers;
-mod output_helpers;
-
-use detector_helpers::build_detectors;
-use image_source_helpers::select_image_source;
-use output_helpers::print_results;
-
-mod cli;
-
-use cli::Cli;
-use cli::Mode;
-
-
-    /// Input file to analyze
-    #[arg(short, long, conflicts_with_all = ["synthetic_checkerboard", "synthetic_white", "passthrough"])]
-    file: Option<String>,
-
-    /// Generate and analyze a synthetic checkerboard image
-    #[arg(long = "synthetic-checkerboard", conflicts_with_all = ["file", "synthetic_white", "passthrough"])]
-    synthetic_checkerboard: bool,
-
-    /// Generate and analyze a synthetic solid white image
-    #[arg(long = "synthetic-white", conflicts_with_all = ["file", "synthetic_checkerboard", "passthrough"])]
-    synthetic_white: bool,
-
-    /// Verbose (human-readable debug) output
-    #[arg(short = 'v', long = "verbose", default_value_t = false)]
-    verbose: bool,
-
-    /// Blur threshold
-    #[arg(short = 't', long = "threshold")]
-    threshold: Option<f64>,
-
-    /// Filter mode: -b (blur-pass, default) or -s (sharp-pass)
-    #[arg(short = 'b', long = "blur", default_value_t = true, conflicts_with = "sharp")]
-    blur: bool,
-
-    #[arg(short = 's', long = "sharp", default_value_t = false, conflicts_with = "blur")]
-    sharp: bool,
-
-    /// ASCII output: print all details for each file in a human-readable format
-    #[arg(short = 'a', long = "ascii", default_value_t = false)]
-    ascii: bool,
-
-    /// Passthrough mode: output stdin to stdout with zero-terminated records
-    #[arg(short = 'p', long = "passthrough", default_value_t = false, conflicts_with_all = ["file", "synthetic_checkerboard", "synthetic_white"])]
-    passthrough: bool,
-
-    /// Read a single image from stdin as bytes
-    #[arg(short = 'B', long = "std_in_bytes", default_value_t = false, conflicts_with_all = ["file", "synthetic_checkerboard", "synthetic_white", "passthrough"])]
-    std_in_bytes: bool,
-
-    /// Tenengrad (Sobel) sharpness threshold
-    #[arg(long = "tenengrad-threshold")]
-    tenengrad_threshold: Option<f64>,
-
-    /// OpenCV Laplacian threshold
-    #[arg(long = "opencv-laplacian-threshold")]
-    opencv_laplacian_threshold: Option<f64>,
-
-    /// Config file path
-    #[arg(long = "config")]
-    config: Option<String>,
-}
-
+use grepfuzz::blur_detector::BlurDetector;
+use grepfuzz::blur_laplacian::LaplacianVarianceDetector;
+use grepfuzz::blur_tenengrad::TenengradDetector;
+use grepfuzz::blur_opencv::OpenCvLaplacianDetector;
+use grepfuzz::config::GrepfuzzConfig;
+use grepfuzz::detector_helpers::build_detectors;
+use grepfuzz::image_source_helpers::select_image_source;
+use grepfuzz::output_helpers::print_results;
+use grepfuzz::cli::{Cli, Mode};
 
 fn main() -> io::Result<()> {
     let cli = Cli::parse();
@@ -101,70 +32,46 @@ fn main() -> io::Result<()> {
     let tenengrad_threshold = config.detectors.tenengrad_threshold.unwrap_or(1000.0);
     let opencv_laplacian_threshold = config.detectors.opencv_laplacian_threshold.unwrap_or(0.1);
 
-    // Synthetic image: checkerboard
-    if cli.synthetic_checkerboard {
-        let img = image_loader::load_image(image_loader::ImageSource::SyntheticCheckerboard { width: 256, height: 256 })
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        if cli.verbose {
-            println!("[VERBOSE] Analyzing synthetic checkerboard image...");
-            debug_blur_analysis(&img, laplacian_threshold);
-        } else {
-            let (variance, is_blurry) = analyze_blur_variance(&img, laplacian_threshold);
-            println!("Checkerboard: blurry={} variance={:.6}", is_blurry, variance);
-        }
-        return Ok(());
-    }
+    // Unified image input handling
+    // use grepfuzz::image_loader::{analyze_image_input, ImageInputMode}; // Already imported at top
+    let input_mode = if cli.synthetic_checkerboard {
+        Some(ImageInputMode::SyntheticCheckerboard)
+    } else if cli.synthetic_white {
+        Some(ImageInputMode::SyntheticWhite)
+    } else if cli.std_in_bytes {
+        Some(ImageInputMode::StdinBytes)
+    } else if let Some(ref filename) = cli.file {
+        Some(ImageInputMode::File(filename.clone()))
+    } else {
+        None
+    };
 
-    // Synthetic image: solid white
-    if cli.synthetic_white {
-        let img = image_loader::ImageSource::from_white(256, 256)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        if cli.verbose {
-            println!("[VERBOSE] Analyzing synthetic white image...");
-            debug_blur_analysis(&img, laplacian_threshold);
-        } else {
-            let (variance, is_blurry) = analyze_blur_variance(&img, laplacian_threshold);
-            println!("White: blurry={} variance={:.6}", is_blurry, variance);
+    let (source, img) = match input_mode {
+        Some(mode) => match analyze_image_input(mode, &cli, laplacian_threshold) {
+            Some((source, img)) => (source, img),
+            None => {
+                eprintln!("Error loading image");
+                return Ok(());
+            }
+        },
+        None => {
+            // If -h/--help is passed, clap will print help and exit automatically.
+            // If no stdin and no file argument, print help and exit.
+            let stdin = io::stdin();
+            let is_stdin_tty = atty::is(atty::Stream::Stdin);
+            if cli.file.is_none() && is_stdin_tty {
+                // No file argument and no piped stdin: print help and exit
+                Cli::command().print_help().unwrap();
+                println!();
+                return Ok(());
+            }
+            // fallback: use select_image_source
+            let source = select_image_source(&cli)?;
+            let img = grepfuzz::image_loader::load_image(source.clone())
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            (source, img)
         }
-        return Ok(());
-    }
-
-    // --std_in_bytes: Read a single image from stdin as bytes
-    if cli.std_in_bytes {
-        let img = image_loader::ImageSource::from_stdin_bytes()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        if cli.verbose {
-            println!("[VERBOSE] Analyzing image from stdin (bytes mode)...");
-            debug_blur_analysis(&img, cli.threshold.unwrap_or(0.1));
-        } else {
-            let (variance, is_blurry) = analyze_blur_variance(&img, cli.threshold.unwrap_or(0.1));
-            println!("Stdin image: blurry={} variance={:.6}", is_blurry, variance);
-        }
-        return Ok(());
-    }
-
-    // File or stdin loader (modularized)
-    mod image_source_helpers;
-    use image_source_helpers::select_image_source;
-    let source = select_image_source(&cli)?;
-    let img = image_loader::load_image(source)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
-    if cli.synthetic_white {
-        let width = 256;
-        let height = 256;
-        let white_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_pixel(width, height, Luma([255]));
-        if cli.verbose {
-            println!("[VERBOSE] Analyzing synthetic white image...");
-            let threshold = cli.threshold.unwrap_or(0.1);
-            debug_blur_analysis(&white_img, threshold);
-        } else {
-            let threshold = cli.threshold.unwrap_or(0.1);
-            let (variance, is_blurry) = analyze_blur_variance(&white_img, threshold);
-            println!("White: blurry={} variance={:.6}", is_blurry, variance);
-        }
-        return Ok(());
-    }
+    };
 
     // If -h/--help is passed, clap will print help and exit automatically.
     // If no stdin and no file argument, print help and exit.
@@ -183,12 +90,12 @@ fn main() -> io::Result<()> {
         let path = std::path::Path::new(&filename);
         let detectors = detector_helpers::build_detectors(laplacian_threshold, tenengrad_threshold, opencv_laplacian_threshold);
 
-        match process_image(path, &detectors) {
+        match process_image(path, detectors.as_slice()) {
             Ok((is_blurry, results, size, width, height, focal)) => {
                 output_helpers::print_results(
                     &mut stdout,
                     is_blurry,
-                    &results,
+                    results.as_slice(),
                     size,
                     width,
                     height,
@@ -197,10 +104,7 @@ fn main() -> io::Result<()> {
                     cli.verbose,
                     cli.ascii,
                 )?;
-    println!("  Detector: {} | Value: {:.6} | Threshold: {:.3} | Result: {}", res.name, res.value, res.threshold, if res.is_blurry { "BLURRY" } else { "SHARP" });
-}
-
-                }
+                
             }
             Err(e) => {
                 eprintln!("Error processing {}: {}", filename, e);
@@ -247,11 +151,11 @@ fn main() -> io::Result<()> {
         };
         let path = Path::new(&path_str);
         // Recreate detectors for each file if needed (or reuse from above)
-        let mut detectors: Vec<Box<dyn blur_detector::BlurDetector>> = Vec::new();
-        detectors.push(Box::new(blur_laplacian::LaplacianVarianceDetector::new(laplacian_threshold)));
-        detectors.push(Box::new(blur_tenengrad::TenengradDetector::new(tenengrad_threshold)));
-        detectors.push(Box::new(blur_opencv::OpenCvLaplacianDetector::new(opencv_laplacian_threshold)));
-        match process_image(path, &detectors) {
+        let mut detectors: Vec<Box<dyn grepfuzz::blur_detector::BlurDetector>> = Vec::new();
+        detectors.push(Box::new(grepfuzz::blur_laplacian::LaplacianVarianceDetector::new(laplacian_threshold)));
+        detectors.push(Box::new(grepfuzz::blur_tenengrad::TenengradDetector::new(tenengrad_threshold)));
+        detectors.push(Box::new(grepfuzz::blur_opencv::OpenCvLaplacianDetector::new(opencv_laplacian_threshold)));
+        match process_image(path, detectors.as_slice()) {
             Ok((is_blurry, results, size, width, height, _focal)) => {
                 if (blur_mode && is_blurry) || (!blur_mode && !is_blurry) {
                     if cli.ascii {
