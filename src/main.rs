@@ -62,7 +62,7 @@ struct Cli {
     passthrough: bool,
 
     /// Read a single image from stdin as bytes
-    #[arg(short = 'b', long = "std_in_bytes", default_value_t = false, conflicts_with_all = ["file", "synthetic_checkerboard", "synthetic_white", "passthrough"])]
+    #[arg(short = 'B', long = "std_in_bytes", default_value_t = false, conflicts_with_all = ["file", "synthetic_checkerboard", "synthetic_white", "passthrough"])]
     std_in_bytes: bool,
 
     /// Tenengrad (Sobel) sharpness threshold
