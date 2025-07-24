@@ -70,3 +70,6 @@ git-update:
 
 build:
 	cargo build
+
+run-stdin-bytes-cup:
+	cat images/cup.jpg | cargo run -- --std_in_bytes --verbose

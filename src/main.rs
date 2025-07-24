@@ -61,6 +61,10 @@ struct Cli {
     #[arg(short = 'p', long = "passthrough", default_value_t = false, conflicts_with_all = ["file", "synthetic_checkerboard", "synthetic_white"])]
     passthrough: bool,
 
+    /// Read a single image from stdin as bytes
+    #[arg(short = 'b', long = "std_in_bytes", default_value_t = false, conflicts_with_all = ["file", "synthetic_checkerboard", "synthetic_white", "passthrough"])]
+    std_in_bytes: bool,
+
     /// Tenengrad (Sobel) sharpness threshold
     #[arg(long = "tenengrad-threshold")]
     tenengrad_threshold: Option<f64>,
@@ -130,11 +134,26 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
+    // --std_in_bytes: Read a single image from stdin as bytes
+    if cli.std_in_bytes {
+        let img = image_loader::load_image(image_loader::ImageSource::Stdin)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        if cli.verbose {
+            println!("[VERBOSE] Analyzing image from stdin (bytes mode)...");
+            debug_blur_analysis(&img, cli.threshold.unwrap_or(0.1));
+        } else {
+            let (variance, is_blurry) = analyze_blur_variance(&img, cli.threshold.unwrap_or(0.1));
+            println!("Stdin image: blurry={} variance={:.6}", is_blurry, variance);
+        }
+        return Ok(());
+    }
+
     // File or stdin loader
     let img = if let Some(ref filename) = cli.file {
         image_loader::load_image(image_loader::ImageSource::File(filename.to_string()))
     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
     } else {
+        // Remove or repurpose this block if not using ImageSource::Stdin for null-terminated filenames
         image_loader::load_image(image_loader::ImageSource::Stdin)
     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
     };
