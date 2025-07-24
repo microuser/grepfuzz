@@ -26,6 +26,7 @@ run-synthetic-white:
 	cargo run -- --synthetic-white -v
 
 run-find-std:
+	pwd
 	find ./images -type f -iname '*.jpg' -print0 | cargo run -- --ascii --verbose
 
 run-find-file:
@@ -66,4 +67,3 @@ git-update:
 
 build:
 	cargo build
-	
