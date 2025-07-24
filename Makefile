@@ -30,6 +30,7 @@ run-find-std:
 	find ./images -type f -iname '*.jpg' -print0 | cargo run -- --ascii --verbose
 
 run-find-file:
+	pwd
 	find ./images -type f -iname '*.jpg' -print0 | xargs -0 -I {} -n 1 cargo run -- -f {} --verbose
 
 run-file-verbose:
