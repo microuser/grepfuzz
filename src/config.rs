@@ -19,9 +19,9 @@ impl Default for GrepfuzzConfig {
     fn default() -> Self {
         GrepfuzzConfig {
             detectors: DetectorConfig {
-                laplacian_threshold: Some(0.1),
-                tenengrad_threshold: Some(1000.0),
-                opencv_laplacian_threshold: Some(0.1),
+                laplacian_threshold: Some(0.2),
+                tenengrad_threshold: Some(100.0),
+                opencv_laplacian_threshold: Some(55.0),
             },
         }
     }

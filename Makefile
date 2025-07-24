@@ -35,6 +35,17 @@ run-file-verbose:
 run-photoboothblack:
 	cargo run -- --ascii -f ./images/photoboothblack.jpg
 
+install:
+	@if [ "$(shell uname)" = "Darwin" ]; then \
+		command -v brew >/dev/null 2>&1 || { echo >&2 "Homebrew not found. Please install Homebrew first."; exit 1; }; \
+		brew install opencv; \
+	elif [ -f /etc/debian_version ]; then \
+		sudo apt-get update && sudo apt-get install -y libopencv-dev; \
+	else \
+		echo "Unsupported OS. Please install OpenCV manually."; \
+		exit 1; \
+	fi
+	
 build-opencv:
 	LDFLAGS="-L/opt/homebrew/opt/llvm/lib" CPPFLAGS="-I/opt/homebrew/opt/llvm/include" cargo build
 

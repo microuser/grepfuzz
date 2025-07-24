@@ -10,14 +10,28 @@ pub struct OpenCvLaplacianDetector {
     pub threshold: f64,
 }
 
+impl OpenCvLaplacianDetector {
+    pub fn new(threshold: f64) -> Self {
+        Self { threshold }
+    }
+}
+
+
 impl BlurDetector for OpenCvLaplacianDetector {
+    fn name(&self) -> &'static str {
+        "OpenCV Laplacian"
+    }
+
     fn detect(&self, img: &ImageBuffer<Luma<u8>, Vec<u8>>) -> (f64, bool) {
         use opencv::{core, imgproc, prelude::*};
         // Convert image::ImageBuffer to OpenCV Mat
         let (width, height) = (img.width() as i32, img.height() as i32);
         // Convert image::ImageBuffer to OpenCV Mat
         let (width, height) = (img.width() as i32, img.height() as i32);
-        let mut mat = core::Mat::new_rows_cols(height, width, core::CV_8UC1).expect("Mat allocation failed");
+        let mut mat = unsafe {
+            core::Mat::new_rows_cols(height, width, core::CV_8UC1)
+                .expect("Mat allocation failed")
+        };
         for y in 0..height {
             for x in 0..width {
                 *mat.at_2d_mut::<u8>(y, x).unwrap() = img.get_pixel(x as u32, y as u32)[0];

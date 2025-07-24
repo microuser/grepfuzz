@@ -5,7 +5,18 @@ pub struct LaplacianVarianceDetector {
     pub threshold: f64,
 }
 
+impl LaplacianVarianceDetector {
+    pub fn new(threshold: f64) -> Self {
+        Self { threshold }
+    }
+}
+
+
 impl BlurDetector for LaplacianVarianceDetector {
+    fn name(&self) -> &'static str {
+        "LaplacianVariance"
+    }
+
     fn detect(&self, img: &ImageBuffer<Luma<u8>, Vec<u8>>) -> (f64, bool) {
         let width = img.width();
         let height = img.height();

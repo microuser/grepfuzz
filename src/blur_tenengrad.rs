@@ -5,7 +5,18 @@ pub struct TenengradDetector {
     pub threshold: f64,
 }
 
+impl TenengradDetector {
+    pub fn new(threshold: f64) -> Self {
+        Self { threshold }
+    }
+}
+
+
 impl BlurDetector for TenengradDetector {
+    fn name(&self) -> &'static str {
+        "Tenengrad"
+    }
+
     fn detect(&self, img: &ImageBuffer<Luma<u8>, Vec<u8>>) -> (f64, bool) {
         let sobel_x = imageops::filter3x3(img, &[-1.0, 0.0, 1.0,
                                                  -2.0, 0.0, 2.0,
