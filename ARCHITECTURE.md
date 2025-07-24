@@ -60,6 +60,81 @@ flowchart TD
 
 This architecture ensures modularity, easy extensibility, and clear separation between configuration, image loading, processing, and result management.
 
+# Detailed ASCII UML Architecture Diagram
+
+Below is a more detailed diagram with key structs, functions, and data types for each layer.
+
+```
++------------------------------------------------+
+|           Configuration Layer                  |
+|------------------------------------------------|
+| Structs:                                      |
+|   - GrepfuzzConfig                            |
+|   - DetectorConfig                            |
+| Functions:                                    |
+|   - from_file(path) -> GrepfuzzConfig         |
+|   - default() -> GrepfuzzConfig               |
+| Data Out:                                     |
+|   - GrepfuzzConfig struct                     |
++------------------------------------------------+
+                  |
+                  v
++------------------------------------------------+
+|           Input/Source Layer                   |
+|------------------------------------------------|
+| Enums/Structs:                                |
+|   - ImageSource (enum)                        |
+| Functions:                                    |
+|   - load_image(source) -> ImageBuffer         |
+| Data Out:                                     |
+|   - ImageBuffer<Luma<u8>, Vec<u8>>            |
++------------------------------------------------+
+                  |
+                  v
++------------------------------------------------+
+|           Detection Layer                      |
+|------------------------------------------------|
+| Traits/Structs:                               |
+|   - BlurDetector (trait)                      |
+|   - LaplacianVarianceDetector                 |
+|   - TenengradDetector                         |
+|   - OpenCvLaplacianDetector                   |
+| Functions/Methods:                            |
+|   - detect(&self, img) -> (f64, bool)         |
+|   - name(&self) -> &'static str               |
+|   - as_any(&self) -> &dyn Any                 |
+| Data Out:                                     |
+|   - (metric_value: f64, is_blurry: bool)      |
++------------------------------------------------+
+                  |
+                  v
++------------------------------------------------+
+|           Result Layer                         |
+|------------------------------------------------|
+| Structs:                                      |
+|   - BlurResult                                |
+| Data Out:                                     |
+|   - Vec<BlurResult>                           |
++------------------------------------------------+
+                  |
+                  v
++------------------------------------------------+
+|           Orchestration Layer                  |
+|------------------------------------------------|
+| Main Function:                                |
+|   - main()                                    |
+|   - process_image(path, detectors)            |
+|   - CLI parsing (Cli struct)                  |
+| Data Out:                                     |
+|   - Output to stdout/logs                     |
++------------------------------------------------+
+```
+
+**Notes:**
+- Each box lists the main structs, enums, and functions used in that layer.
+- "Data Out" shows the main data type(s) passed to the next layer.
+- This diagram gives programmers a quick reference to the key types and functions per layer.
+
 
 # Elaboration of Detail
 
@@ -271,81 +346,6 @@ If you want this summary added to your `ARCHITECTURE.md` or want more detailed c
 
 Each arrow represents the downward flow of data and control from configuration, through input, detection, result storage, and orchestration in the application.
 
-
-# Detailed ASCII UML Architecture Diagram
-
-Below is a more detailed diagram with key structs, functions, and data types for each layer.
-
-```
-+------------------------------------------------+
-|           Configuration Layer                  |
-|------------------------------------------------|
-| Structs:                                      |
-|   - GrepfuzzConfig                            |
-|   - DetectorConfig                            |
-| Functions:                                    |
-|   - from_file(path) -> GrepfuzzConfig         |
-|   - default() -> GrepfuzzConfig               |
-| Data Out:                                     |
-|   - GrepfuzzConfig struct                     |
-+------------------------------------------------+
-                  |
-                  v
-+------------------------------------------------+
-|           Input/Source Layer                   |
-|------------------------------------------------|
-| Enums/Structs:                                |
-|   - ImageSource (enum)                        |
-| Functions:                                    |
-|   - load_image(source) -> ImageBuffer         |
-| Data Out:                                     |
-|   - ImageBuffer<Luma<u8>, Vec<u8>>            |
-+------------------------------------------------+
-                  |
-                  v
-+------------------------------------------------+
-|           Detection Layer                      |
-|------------------------------------------------|
-| Traits/Structs:                               |
-|   - BlurDetector (trait)                      |
-|   - LaplacianVarianceDetector                 |
-|   - TenengradDetector                         |
-|   - OpenCvLaplacianDetector                   |
-| Functions/Methods:                            |
-|   - detect(&self, img) -> (f64, bool)         |
-|   - name(&self) -> &'static str               |
-|   - as_any(&self) -> &dyn Any                 |
-| Data Out:                                     |
-|   - (metric_value: f64, is_blurry: bool)      |
-+------------------------------------------------+
-                  |
-                  v
-+------------------------------------------------+
-|           Result Layer                         |
-|------------------------------------------------|
-| Structs:                                      |
-|   - BlurResult                                |
-| Data Out:                                     |
-|   - Vec<BlurResult>                           |
-+------------------------------------------------+
-                  |
-                  v
-+------------------------------------------------+
-|           Orchestration Layer                  |
-|------------------------------------------------|
-| Main Function:                                |
-|   - main()                                    |
-|   - process_image(path, detectors)            |
-|   - CLI parsing (Cli struct)                  |
-| Data Out:                                     |
-|   - Output to stdout/logs                     |
-+------------------------------------------------+
-```
-
-**Notes:**
-- Each box lists the main structs, enums, and functions used in that layer.
-- "Data Out" shows the main data type(s) passed to the next layer.
-- This diagram gives programmers a quick reference to the key types and functions per layer.
 
 #Authors
 microuser
