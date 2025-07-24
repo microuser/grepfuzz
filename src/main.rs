@@ -1,6 +1,6 @@
 use grepfuzz::process_image;
-use grepfuzz::image_analysis::{debug_blur_analysis, analyze_blur_variance};
-use grepfuzz::image_loader::{ImageInputMode, analyze_image_input, load_image};
+
+use grepfuzz::image_loader::{ImageInputMode, analyze_image_input};
 use grepfuzz::detector_helpers;
 use grepfuzz::output_helpers;
 
@@ -10,17 +10,17 @@ use std::io;
 use std::io::BufRead;
 use std::io::Write;
 use std::path::Path;
-use image::imageops;
-use rexif::{parse_file, ExifTag};
-use grepfuzz::blur_detector::BlurDetector;
-use grepfuzz::blur_laplacian::LaplacianVarianceDetector;
-use grepfuzz::blur_tenengrad::TenengradDetector;
-use grepfuzz::blur_opencv::OpenCvLaplacianDetector;
+
+
+
+
+
+
 use grepfuzz::config::GrepfuzzConfig;
-use grepfuzz::detector_helpers::build_detectors;
+
 use grepfuzz::image_source_helpers::select_image_source;
-use grepfuzz::output_helpers::print_results;
-use grepfuzz::cli::{Cli, Mode};
+
+use grepfuzz::cli::Cli;
 
 fn main() -> io::Result<()> {
     let cli = Cli::parse();
@@ -46,7 +46,7 @@ fn main() -> io::Result<()> {
         None
     };
 
-    let (source, img) = match input_mode {
+    let (_source, _img) = match input_mode {
         Some(mode) => match analyze_image_input(mode, &cli, laplacian_threshold) {
             Some((source, img)) => (source, img),
             None => {
@@ -57,7 +57,7 @@ fn main() -> io::Result<()> {
         None => {
             // If -h/--help is passed, clap will print help and exit automatically.
             // If no stdin and no file argument, print help and exit.
-            let stdin = io::stdin();
+            let _stdin = io::stdin();
             let is_stdin_tty = atty::is(atty::Stream::Stdin);
             if cli.file.is_none() && is_stdin_tty {
                 // No file argument and no piped stdin: print help and exit

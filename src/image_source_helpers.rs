@@ -1,5 +1,5 @@
 use crate::cli::Cli;
-use crate::image_loader::{self, ImageSource};
+use crate::image_loader::ImageSource;
 use std::io;
 
 /// Selects the image source based on CLI arguments.

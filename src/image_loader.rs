@@ -56,8 +56,8 @@ pub enum ImageInputMode {
 /// Returns (ImageSource, img) if input is present, otherwise None
 pub fn analyze_image_input(
     mode: ImageInputMode,
-    cli: &crate::cli::Cli,
-    laplacian_threshold: f64,
+    _cli: &crate::cli::Cli,
+    _laplacian_threshold: f64,
 ) -> Option<(ImageSource, image::ImageBuffer<image::Luma<u8>, Vec<u8>>)> {
     match mode {
         ImageInputMode::SyntheticCheckerboard => {
