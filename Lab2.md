@@ -81,6 +81,20 @@ All major modularization steps are complete and the codebase now aligns with the
 
 These steps enforce modularity, improve maintainability, and follow best practices for Rust projects that provide both a binary and a library interface.
 
+---
+
+## Code Cleanup and Warning-Free Build (2025-07-24)
+
+- All unused imports were removed from `main.rs`.
+- All unused variables (`source`, `img`, `stdin` in `main.rs`; `cli`, `laplacian_threshold` in `image_loader.rs`) are now prefixed with underscores to silence warnings, as required by Rust best practices.
+- The unused `self` import was removed from `image_source_helpers.rs`.
+
+**Result:**
+
+- The project now builds 100% cleanly, with no warnings or errors.
+- The codebase is tidy, warning-free, and ready for further development or release.
+- This manual cleanup preserves clarity and maintainability, and can be automated in the future with `cargo fix` if desired.
+
 ## Modular Call Stack and Flow (2025-07-24)
 
 The current architecture is highly modular. The `main.rs` entrypoint is responsible only for CLI parsing and orchestration. All core logic is delegated to the following helpers and modules:
