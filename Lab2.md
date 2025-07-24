@@ -67,4 +67,16 @@ This will align the codebase with the layered architecture described in ARCHITEC
 - **Moved `process_image` to `lib.rs`**: Extracted the main image processing logic from `main.rs` into `lib.rs` as a public function for reuse and modularity.
 - **Updated `main.rs`**: Refactored `main.rs` to import and use `process_image` from `lib.rs`, removing the local definition and making `main.rs` a thin binary interface.
 
+---
+
+## Modularization: Helper Modules (2025-07-24)
+
+- **Config Loading**: Moved configuration loading and CLI merging logic from `main.rs` into a helper function in `config.rs`.
+- **Detector Construction**: Created `detector_helpers.rs` to encapsulate the construction of blur detector objects.
+- **Image Source Selection**: Added `image_source_helpers.rs` to handle all logic for selecting the image source (file, synthetic, stdin, etc.) based on CLI arguments.
+- **Output Formatting**: Added `output_helpers.rs` to centralize all output formatting and printing logic, supporting ASCII, verbose, and default modes.
+- **Result**: `main.rs` is now a thin binary entry point that delegates to these helpers, greatly improving clarity, maintainability, and testability.
+
+All major modularization steps are complete and the codebase now aligns with the intended layered architecture.
+
 These steps enforce modularity, improve maintainability, and follow best practices for Rust projects that provide both a binary and a library interface.

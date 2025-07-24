@@ -24,10 +24,20 @@ use blur_opencv::OpenCvLaplacianDetector;
 
 use image::{ImageBuffer, Luma};
 use config::GrepfuzzConfig;
+mod detector_helpers;
+mod image_source_helpers;
+mod output_helpers;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
+use detector_helpers::build_detectors;
+use image_source_helpers::select_image_source;
+use output_helpers::print_results;
+
+mod cli;
+
+use cli::Cli;
+use cli::Mode;
+
+
     /// Input file to analyze
     #[arg(short, long, conflicts_with_all = ["synthetic_checkerboard", "synthetic_white", "passthrough"])]
     file: Option<String>,
@@ -80,33 +90,16 @@ struct Cli {
     config: Option<String>,
 }
 
-#[derive(clap::ValueEnum, Clone, Debug)]
-enum Mode {
-    Blur,
-    Sharp,
-}
 
 fn main() -> io::Result<()> {
     let cli = Cli::parse();
     let mut stdout = io::stdout();
 
-    // Load config
-    let config = if let Some(ref path) = cli.config {
-        match GrepfuzzConfig::from_file(path) {
-            Ok(cfg) => cfg,
-            Err(e) => {
-                eprintln!("Failed to load config: {}. Using defaults.", e);
-                GrepfuzzConfig::default()
-            }
-        }
-    } else {
-        GrepfuzzConfig::default()
-    };
-
-    // Use config values unless overridden by CLI
-    let laplacian_threshold = cli.threshold.or(config.detectors.laplacian_threshold).unwrap_or(0.1);
-    let tenengrad_threshold = cli.tenengrad_threshold.or(config.detectors.tenengrad_threshold).unwrap_or(1000.0);
-    let opencv_laplacian_threshold = cli.opencv_laplacian_threshold.or(config.detectors.opencv_laplacian_threshold).unwrap_or(0.1);
+    // Load config (now merged with CLI overrides)
+    let config = GrepfuzzConfig::from_cli(&cli);
+    let laplacian_threshold = config.detectors.laplacian_threshold.unwrap_or(0.1);
+    let tenengrad_threshold = config.detectors.tenengrad_threshold.unwrap_or(1000.0);
+    let opencv_laplacian_threshold = config.detectors.opencv_laplacian_threshold.unwrap_or(0.1);
 
     // Synthetic image: checkerboard
     if cli.synthetic_checkerboard {
@@ -150,15 +143,12 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    // File or stdin loader
-    let img = if let Some(ref filename) = cli.file {
-        image_loader::ImageSource::from_file(filename)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
-    } else {
-        // Remove or repurpose this block if not using ImageSource::Stdin for null-terminated filenames
-        image_loader::ImageSource::from_stdin_bytes()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
-    };
+    // File or stdin loader (modularized)
+    mod image_source_helpers;
+    use image_source_helpers::select_image_source;
+    let source = select_image_source(&cli)?;
+    let img = image_loader::load_image(source)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     if cli.synthetic_white {
         let width = 256;
@@ -191,29 +181,22 @@ fn main() -> io::Result<()> {
     // If file argument is provided, process that file
     if let Some(ref filename) = cli.file {
         let path = std::path::Path::new(&filename);
-        let detectors: Vec<Box<dyn BlurDetector>> = vec![
-            Box::new(LaplacianVarianceDetector { threshold: laplacian_threshold }),
-            Box::new(TenengradDetector { threshold: tenengrad_threshold }),
-            Box::new(OpenCvLaplacianDetector::new(55.0)),
-        ];
+        let detectors = detector_helpers::build_detectors(laplacian_threshold, tenengrad_threshold, opencv_laplacian_threshold);
 
         match process_image(path, &detectors) {
             Ok((is_blurry, results, size, width, height, focal)) => {
-                if cli.verbose || cli.ascii {
-                    println!("[VERBOSE] File: {}", path.display());
-                    println!("[VERBOSE] Size: {} bytes", size);
-                    println!("[VERBOSE] Dimensions: {}x{}", width, height);
-                    for res in &results {
-                        println!("[VERBOSE] {}: {:.6} (thresh {:.3}) => {}", res.name, res.value, res.threshold, if res.is_blurry { "BLURRY" } else { "SHARP" });
-                    }
-                    let tenengrad_val = tenengrad_sharpness(&img);
-                    println!("[VERBOSE] Tenengrad sharpness: {:.6}", tenengrad_val);
-                    println!("[VERBOSE] Blurry (all detectors): {}", is_blurry);
-                    println!("[VERBOSE] Focal Length: {}", focal.clone().unwrap_or("N/A".to_string()));
-                } else {
-                    let tenengrad_val = tenengrad_sharpness(&img);
-                    println!("File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Blurry: {}\n  Tenengrad: {:.6}\n  Focal Length: {}", path.display(), size, width, height, if is_blurry { "BLURRY" } else { "SHARP" }, tenengrad_val, focal.clone().unwrap_or("N/A".to_string()));
-for res in &results {
+                output_helpers::print_results(
+                    &mut stdout,
+                    is_blurry,
+                    &results,
+                    size,
+                    width,
+                    height,
+                    &focal,
+                    filename,
+                    cli.verbose,
+                    cli.ascii,
+                )?;
     println!("  Detector: {} | Value: {:.6} | Threshold: {:.3} | Result: {}", res.name, res.value, res.threshold, if res.is_blurry { "BLURRY" } else { "SHARP" });
 }
 
