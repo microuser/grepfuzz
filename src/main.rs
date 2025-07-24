@@ -247,7 +247,7 @@ for res in &results {
         detectors.push(Box::new(blur_tenengrad::TenengradDetector::new(tenengrad_threshold)));
         detectors.push(Box::new(blur_opencv::OpenCvLaplacianDetector::new(opencv_laplacian_threshold)));
         match process_image(path, &detectors) {
-            Ok((is_blurry, results, size, width, height, focal)) => {
+            Ok((is_blurry, results, size, width, height, _focal)) => {
                 if (blur_mode && is_blurry) || (!blur_mode && !is_blurry) {
                     if cli.ascii {
                         // Print all detector results in ASCII/TSV style
