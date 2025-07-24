@@ -169,7 +169,7 @@ fn main() -> io::Result<()> {
     // If file argument is provided, process that file
     if let Some(ref filename) = cli.file {
         let path = std::path::Path::new(&filename);
-        let mut detectors: Vec<Box<dyn BlurDetector>> = vec![
+        let detectors: Vec<Box<dyn BlurDetector>> = vec![
             Box::new(LaplacianVarianceDetector { threshold: laplacian_threshold }),
             Box::new(TenengradDetector { threshold: tenengrad_threshold }),
             Box::new(OpenCvLaplacianDetector::new(55.0)),
@@ -184,10 +184,13 @@ fn main() -> io::Result<()> {
                     for res in &results {
                         println!("[VERBOSE] {}: {:.6} (thresh {:.3}) => {}", res.name, res.value, res.threshold, if res.is_blurry { "BLURRY" } else { "SHARP" });
                     }
+                    let tenengrad_val = tenengrad_sharpness(&img);
+                    println!("[VERBOSE] Tenengrad sharpness: {:.6}", tenengrad_val);
                     println!("[VERBOSE] Blurry (all detectors): {}", is_blurry);
                     println!("[VERBOSE] Focal Length: {}", focal.clone().unwrap_or("N/A".to_string()));
                 } else {
-                    println!("File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Blurry: {}\n  Focal Length: {}", path.display(), size, width, height, is_blurry, focal.clone().unwrap_or("N/A".to_string()));
+                    let tenengrad_val = tenengrad_sharpness(&img);
+                    println!("File: {}\n  Size: {} bytes\n  Dimensions: {}x{}\n  Blurry: {}\n  Tenengrad: {:.6}\n  Focal Length: {}", path.display(), size, width, height, if is_blurry { "BLURRY" } else { "SHARP" }, tenengrad_val, focal.clone().unwrap_or("N/A".to_string()));
 for res in &results {
     println!("  Detector: {} | Value: {:.6} | Threshold: {:.3} | Result: {}", res.name, res.value, res.threshold, if res.is_blurry { "BLURRY" } else { "SHARP" });
 }

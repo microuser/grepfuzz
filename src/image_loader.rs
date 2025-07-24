@@ -1,5 +1,4 @@
 use image::{ImageBuffer, Luma, ImageReader};
-use std::fs::File;
 use std::io::{self, Read};
 
 pub enum ImageSource {

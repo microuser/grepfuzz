@@ -27,6 +27,10 @@ This document tracks the major changes, rationale, and prompt/action log for Lab
 ## 6. User: Lab logging and authorship
 **Action:** Added authorship section to `ARCHITECTURE.md` and created this `Lab2.md` to log today's changes.
 
+
+## 7. User: Output Tenengrad sharpness as an additional detail
+**Action:** Modified `main.rs` so that Tenengrad sharpness is computed and included in the output for each image, both in verbose and standard output. This provides a direct sharpness metric alongside blur detection and resolves the unused function warning.
+
 ---
 
 This log documents the session's major code changes, rationale, and prompt/action history for Lab 2.
