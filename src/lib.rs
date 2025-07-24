@@ -6,6 +6,7 @@ pub mod image_analysis;
 pub mod image_loader;
 pub mod metadata;
 pub mod blur_detector;
+pub mod cli;
 pub mod blur_laplacian;
 pub mod blur_opencv;
 pub mod blur_result;
@@ -13,12 +14,11 @@ pub mod blur_tenengrad;
 pub mod config;
 
 use std::path::Path;
-use blur_detector::BlurDetector;
-use blur_laplacian::LaplacianVarianceDetector;
-use blur_tenengrad::TenengradDetector;
-use blur_opencv::OpenCvLaplacianDetector;
-use blur_result::BlurResult;
-use image::ImageBuffer;
+use crate::blur_detector::BlurDetector;
+use crate::blur_laplacian::LaplacianVarianceDetector;
+use crate::blur_tenengrad::TenengradDetector;
+use crate::blur_opencv::OpenCvLaplacianDetector;
+use crate::blur_result::BlurResult;
 
 /// Processes an image at the given path using the provided blur detectors.
 pub fn process_image(
