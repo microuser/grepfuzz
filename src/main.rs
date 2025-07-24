@@ -5,6 +5,8 @@ mod blur_opencv;
 mod config;
 mod image_loader;
 mod blur_result;
+
+use grepfuzz::process_image; // Use process_image from lib.rs
 use clap::Parser;
 use clap::CommandFactory;
 use std::io;
@@ -122,8 +124,8 @@ fn main() -> io::Result<()> {
 
     // Synthetic image: solid white
     if cli.synthetic_white {
-        let img = image_loader::load_image(image_loader::ImageSource::SyntheticWhite { width: 256, height: 256 })
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let img = image_loader::ImageSource::from_white(256, 256)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         if cli.verbose {
             println!("[VERBOSE] Analyzing synthetic white image...");
             debug_blur_analysis(&img, laplacian_threshold);
@@ -136,7 +138,7 @@ fn main() -> io::Result<()> {
 
     // --std_in_bytes: Read a single image from stdin as bytes
     if cli.std_in_bytes {
-        let img = image_loader::load_image(image_loader::ImageSource::Stdin)
+        let img = image_loader::ImageSource::from_stdin_bytes()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         if cli.verbose {
             println!("[VERBOSE] Analyzing image from stdin (bytes mode)...");
@@ -150,13 +152,14 @@ fn main() -> io::Result<()> {
 
     // File or stdin loader
     let img = if let Some(ref filename) = cli.file {
-        image_loader::load_image(image_loader::ImageSource::File(filename.to_string()))
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+        image_loader::ImageSource::from_file(filename)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
     } else {
         // Remove or repurpose this block if not using ImageSource::Stdin for null-terminated filenames
-        image_loader::load_image(image_loader::ImageSource::Stdin)
-    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+        image_loader::ImageSource::from_stdin_bytes()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
     };
+
     if cli.synthetic_white {
         let width = 256;
         let height = 256;
@@ -288,197 +291,3 @@ for res in &results {
     Ok(())
 }
 
-fn tenengrad_sharpness(img: &ImageBuffer<Luma<u8>, Vec<u8>>) -> f64 {
-    let sobel_x = imageops::filter3x3(img, &[-1.0, 0.0, 1.0,
-                                             -2.0, 0.0, 2.0,
-                                             -1.0, 0.0, 1.0]);
-    let sobel_y = imageops::filter3x3(img, &[-1.0, -2.0, -1.0,
-                                              0.0,  0.0,  0.0,
-                                              1.0,  2.0,  1.0]);
-    let mut sum = 0.0;
-    for (x, y, pixel) in sobel_x.enumerate_pixels() {
-        let gx = pixel[0] as f64;
-        let gy = sobel_y.get_pixel(x, y)[0] as f64;
-        sum += gx * gx + gy * gy;
-    }
-    sum / (img.width() as f64 * img.height() as f64)
-}
-
-fn process_image(
-    path: &std::path::Path,
-    detectors: &[Box<dyn BlurDetector>],
-) -> Result<(bool, Vec<BlurResult>, u64, u32, u32, Option<String>), Box<dyn std::error::Error>> {
-    // Load image and convert to grayscale u8
-    let img = image::open(path)?.grayscale().to_luma8();
-    let width = img.width();
-    let height = img.height();
-
-    let mut results = Vec::new();
-    let mut all_blurry = true;
-    for det in detectors {
-        let (val, is_blurry) = det.detect(&img);
-        let name = det.name().to_string();
-        let threshold = if let Some(l) = det.as_any().downcast_ref::<LaplacianVarianceDetector>() {
-            l.threshold
-        } else if let Some(t) = det.as_any().downcast_ref::<TenengradDetector>() {
-            t.threshold
-        } else if let Some(o) = det.as_any().downcast_ref::<OpenCvLaplacianDetector>() {
-            o.threshold
-        } else { 0.0 };
-        results.push(BlurResult { name, value: val, threshold, is_blurry });
-        all_blurry = all_blurry && is_blurry;
-    }
-
-    // File size
-    let size = std::fs::metadata(path)?.len();
-    let focal = extract_focal_length(path);
-
-    Ok((all_blurry, results, size, width, height, focal))
-}
-
-fn debug_blur_analysis(img: &ImageBuffer<Luma<u8>, Vec<u8>>, threshold: f64) {
-    println!("[DEBUG] Image size: {}x{}", img.width(), img.height());
-    let width = img.width();
-    let height = img.height();
-    // Convert to f32 for filtering (without normalization)
-    let img_f32: ImageBuffer<Luma<f32>, Vec<f32>> = ImageBuffer::from_fn(width, height, |x, y| {
-        Luma([img.get_pixel(x, y)[0] as f32])
-    });
-    println!("[DEBUG] Converted to f32 grayscale");
-    // Apply Laplacian kernel
-    let kernel = [0f32, 1.0, 0.0, 1.0, -4.0, 1.0, 0.0, 1.0, 0.0];
-    let lap: ImageBuffer<Luma<f32>, Vec<f32>> = imageops::filter3x3(&img_f32, &kernel);
-    println!("[DEBUG] Applied Laplacian kernel");
-    // Compute variance
-    let pixels = lap.into_vec();
-    let n = pixels.len() as f64;
-    let mut mean = 0.0f64;
-    for &p in &pixels {
-        mean += p as f64;
-    }
-    mean /= n;
-    println!("[DEBUG] Mean: {:.6}", mean);
-    let mut variance = 0.0f64;
-    for &p in &pixels {
-        variance += (p as f64 - mean).powi(2);
-    }
-    variance /= n;
-    println!("[DEBUG] Variance: {:.6}", variance);
-    println!("[DEBUG] Threshold: {:.2}", threshold);
-    let is_blurry = variance < threshold;
-    println!("[DEBUG] Result: {}", if is_blurry {"BLURRY"} else {"SHARP"});
-}
-
-// Helper for testing and main: like debug_blur_analysis but returns values
-fn analyze_blur_variance(img: &ImageBuffer<Luma<u8>, Vec<u8>>, threshold: f64) -> (f64, bool) {
-    let width = img.width();
-    let height = img.height();
-    let img_f32: ImageBuffer<Luma<f32>, Vec<f32>> = ImageBuffer::from_fn(width, height, |x, y| {
-        Luma([img.get_pixel(x, y)[0] as f32])
-    });
-    let kernel = [0f32, 1.0, 0.0, 1.0, -4.0, 1.0, 0.0, 1.0, 0.0];
-    let lap: ImageBuffer<Luma<f32>, Vec<f32>> = imageops::filter3x3(&img_f32, &kernel);
-    let pixels = lap.into_vec();
-    let n = pixels.len() as f64;
-    let mut mean = 0.0f64;
-    for &p in &pixels {
-        mean += p as f64;
-    }
-    mean /= n;
-    let mut variance = 0.0f64;
-    for &p in &pixels {
-        variance += (p as f64 - mean).powi(2);
-    }
-    variance /= n;
-    let is_blurry = variance < threshold;
-    (variance, is_blurry)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use image::{ImageBuffer, Luma};
-
-    #[test]
-    fn test_blur_on_solid_white() {
-        // Create a 100x100 solid white image
-        let width = 100;
-        let height = 100;
-        let white_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_pixel(width, height, Luma([255]));
-        let threshold = 100.0;
-        let (variance, is_blurry) = analyze_blur_variance(&white_img, threshold);
-        assert!(variance.abs() < 1e-6, "Variance should be near zero for solid white, got {}", variance);
-        assert!(is_blurry, "Solid white image should be classified as blurry");
-    }
-
-    #[test]
-    fn test_sharp_on_checkerboard() {
-        // Create a 100x100 checkerboard image
-        let width = 100;
-        let height = 100;
-        let checkerboard_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |x, y| {
-            if (x + y) % 2 == 0 {
-                Luma([0]) // black
-            } else {
-                Luma([255]) // white
-            }
-        });
-        let threshold = 0.1;
-        let (_variance, is_blurry) = analyze_blur_variance(&checkerboard_img, threshold);
-        assert!(!is_blurry, "Checkerboard image should be classified as sharp");
-    }
-
-    #[test]
-    fn test_sharp_on_large_checkerboard() {
-        // Create a 100x100 checkerboard with 10x10 pixel squares
-        let width = 100;
-        let height = 100;
-        let block = 10;
-        let checkerboard_img: ImageBuffer<Luma<u8>, Vec<u8>> = ImageBuffer::from_fn(width, height, |x, y| {
-            if ((x / block) + (y / block)) % 2 == 0 {
-                Luma([0]) // black
-            } else {
-                Luma([255]) // white
-            }
-        });
-        let threshold = 0.1;
-        let (_variance, is_blurry) = analyze_blur_variance(&checkerboard_img, threshold);
-        assert!(!is_blurry, "Large-block checkerboard should be classified as sharp");
-    }
-
-// Helper for testing and main: like debug_blur_analysis but returns values
-fn analyze_blur_variance(img: &ImageBuffer<Luma<u8>, Vec<u8>>, threshold: f64) -> (f64, bool) {
-    let width = img.width();
-    let height = img.height();
-    let img_f32: ImageBuffer<Luma<f32>, Vec<f32>> = ImageBuffer::from_fn(width, height, |x, y| {
-        Luma([img.get_pixel(x, y)[0] as f32])
-    });
-    let kernel = [0f32, 1.0, 0.0, 1.0, -4.0, 1.0, 0.0, 1.0, 0.0];
-    let lap: ImageBuffer<Luma<f32>, Vec<f32>> = imageops::filter3x3(&img_f32, &kernel);
-    let pixels = lap.into_vec();
-    let n = pixels.len() as f64;
-    let mut mean = 0.0f64;
-    for &p in &pixels {
-        mean += p as f64;
-    }
-    mean /= n;
-    let mut variance = 0.0f64;
-    for &p in &pixels {
-        variance += (p as f64 - mean).powi(2);
-    }
-    variance /= n;
-    let is_blurry = variance < threshold;
-    (variance, is_blurry)
-}
-
-}
-
-fn extract_focal_length(path: &Path) -> Option<String> {
-    let exif = parse_file(path).ok()?;
-    for entry in exif.entries {
-        if entry.tag == ExifTag::FocalLength {
-            return Some(entry.value_more_readable.to_string());
-        }
-    }
-    None
-}
