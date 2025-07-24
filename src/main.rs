@@ -67,7 +67,7 @@ fn main() -> io::Result<()> {
             }
             // fallback: use select_image_source
             let source = select_image_source(&cli)?;
-            let img = grepfuzz::image_loader::load_image(source.clone())
+            let _img = grepfuzz::image_loader::load_image(source.clone())
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             (None, source, None)
         }
