@@ -46,6 +46,7 @@ impl ImageSource {
 }
 
 /// Special image analysis cases (synthetic checkerboard, white, stdin-bytes)
+#[derive(Clone)]
 pub enum ImageInputMode {
     SyntheticCheckerboard,
     SyntheticWhite,

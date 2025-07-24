@@ -46,9 +46,9 @@ fn main() -> io::Result<()> {
         None
     };
 
-    let (_source, _img) = match input_mode {
-        Some(mode) => match analyze_image_input(mode, &cli, laplacian_threshold) {
-            Some((source, img)) => (source, img),
+    let (input_mode_val, source, img_opt) = match input_mode {
+        Some(mode) => match analyze_image_input(mode.clone(), &cli, laplacian_threshold) {
+            Some((source, img)) => (Some(mode), source, Some(img)),
             None => {
                 eprintln!("Error loading image");
                 return Ok(());
@@ -69,9 +69,29 @@ fn main() -> io::Result<()> {
             let source = select_image_source(&cli)?;
             let img = grepfuzz::image_loader::load_image(source.clone())
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-            (source, img)
+            (None, source, None)
         }
     };
+
+
+    // Handle verbose output for StdinBytes mode
+    if let (Some(ImageInputMode::StdinBytes), Some(_source), Some(img)) = (input_mode_val.clone(), Some(source.clone()), img_opt.clone()) {
+        let detectors = detector_helpers::build_detectors(laplacian_threshold, tenengrad_threshold, opencv_laplacian_threshold);
+        let (is_blurry, results, size, width, height, focal) = grepfuzz::process_image_buffer(&img, detectors.as_slice());
+        output_helpers::print_results(
+            &mut stdout,
+            is_blurry,
+            results.as_slice(),
+            size,
+            width,
+            height,
+            &focal,
+            "<stdin>",
+            cli.verbose,
+            cli.ascii,
+        )?;
+        return Ok(());
+    }
 
     // If -h/--help is passed, clap will print help and exit automatically.
     // If no stdin and no file argument, print help and exit.
