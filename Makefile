@@ -25,8 +25,11 @@ run-synthetic-checkerboard:
 run-synthetic-white:
 	cargo run -- --synthetic-white -v
 
-run-file-find:
+run-find-std:
 	find ./images -type f -iname '*.jpg' -print0 | cargo run -- --ascii --verbose
+
+run-find-file:
+	find ./images -type f -iname '*.jpg' -print0 | xargs -0 -I {} -n 1 cargo run -- -f {} --verbose
 
 run-file-verbose:
 	@if [ -z "./images/image-26.jpg" ]; then echo "Usage: make run-file-verbose FILE=./images/image-26.jpg"; exit 1; fi
@@ -56,3 +59,8 @@ test-null-filelist: build
 	@diff --text test/filelist_in.txt test/filelist_out.txt
 	@tr '\0' '|' < test/filelist_in.txt
 	@tr '\0' '|' < test/filelist_out.txt
+
+git-update:
+	git fetch
+	git pull
+	
