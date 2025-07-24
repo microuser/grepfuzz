@@ -63,4 +63,7 @@ test-null-filelist: build
 git-update:
 	git fetch
 	git pull
+
+build:
+	cargo build
 	
