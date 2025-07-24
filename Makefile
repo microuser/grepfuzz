@@ -27,13 +27,23 @@ run-synthetic-white:
 
 run-find-std:
 	pwd
-	find ./images -type f -iname '*.jpg' -print0 | cargo run -- --ascii --verbose
+	find ./images -type f -iname '*.jpg'
+	echo verbose
+	find ./images -type f -iname '*.jpg' -print0 | cargo run --release -- --verbose --blur --ascii
+	echo normal
+	find ./images -type f -iname '*.jpg' -print0 | cargo run --release -- --blur --ascii
+	echo normal
+	find ./images -type f -iname '*.jpg' -print0 | cargo run --release -- 
 
 run-find-file:
 	pwd
 	ls -la .
 	ls -la ./images
-	find ./images -type f -iname '*.jpg' -print0 | xargs -0 -I {} -n 1 cargo run -- -f {} --verbose
+	echo verbose
+	find ./images -type f -iname '*.jpg' -print0 | xargs -0 -I {} -n 1 cargo run --release -- -f {} --verbose
+	echo normal
+	find ./images -type f -iname '*.jpg' -print0 | xargs -0 -I {} -n 1 cargo run --release -- -f {}
+
 
 run-file-verbose:
 	@if [ -z "./images/image-26.jpg" ]; then echo "Usage: make run-file-verbose FILE=./images/image-26.jpg"; exit 1; fi

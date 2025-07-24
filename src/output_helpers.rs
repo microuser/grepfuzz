@@ -1,5 +1,6 @@
 use crate::blur_result::BlurResult;
 use std::io::{self, Write};
+use ansi_term::Colour::{Green, Red};
 
 pub fn print_results<W: Write>(
     writer: &mut W,
@@ -22,9 +23,19 @@ pub fn print_results<W: Write>(
         writeln!(writer, "  Dimensions: {}x{}", width, height)?;
         writeln!(writer, "  Focal Length: {}", focal.as_deref().unwrap_or("-"))?;
         for r in results {
-            writeln!(writer, "  {}: value = {:.3}, blurry = {} (threshold: {:.3})", r.name, r.value, r.is_blurry, r.threshold)?;
+            let blur_str = if r.is_blurry {
+                Red.paint("BLURRY")
+            } else {
+                Green.paint("SHARP")
+            };
+            writeln!(writer, "  {}: value = {:.3}, blurry = {} (threshold: {:.3})", r.name, r.value, blur_str, r.threshold)?;
         }
-        writeln!(writer, "  Overall blurry: {}", is_blurry)?;
+        let overall_str = if is_blurry {
+            Red.paint("BLURRY")
+        } else {
+            Green.paint("SHARP")
+        };
+        writeln!(writer, "  Overall blurry: {}", overall_str)?;
     } else {
         writeln!(writer, "{}\t{}", filename, is_blurry)?;
     }

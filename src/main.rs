@@ -18,7 +18,6 @@ use std::path::Path;
 
 use grepfuzz::config::GrepfuzzConfig;
 
-use grepfuzz::image_source_helpers::select_image_source;
 
 use grepfuzz::cli::Cli;
 
@@ -54,42 +53,17 @@ fn main() -> io::Result<()> {
                 return Ok(());
             }
         },
-        None => {
-            // If -h/--help is passed, clap will print help and exit automatically.
-            // If no stdin and no file argument, print help and exit.
-            let _stdin = io::stdin();
-            let is_stdin_tty = atty::is(atty::Stream::Stdin);
-            if cli.file.is_none() && is_stdin_tty {
-                // No file argument and no piped stdin: print help and exit
-                Cli::command().print_help().unwrap();
-                println!();
-                return Ok(());
-            }
-            // fallback: use select_image_source
-            let source = select_image_source(&cli)?;
-            let _img = grepfuzz::image_loader::load_image(source.clone())
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-            (None, source, None)
-        }
+        None => (None, grepfuzz::image_loader::ImageSource::Stdin, None), // Use ImageSource::Stdin for type match
     };
 
 
     // Handle verbose output for StdinBytes mode
     if let (Some(ImageInputMode::StdinBytes), Some(_source), Some(img)) = (input_mode_val.clone(), Some(source.clone()), img_opt.clone()) {
         let detectors = detector_helpers::build_detectors(laplacian_threshold, tenengrad_threshold, opencv_laplacian_threshold);
-        let (is_blurry, results, size, width, height, focal) = grepfuzz::process_image_buffer(&img, detectors.as_slice());
-        output_helpers::print_results(
-            &mut stdout,
-            is_blurry,
-            results.as_slice(),
-            size,
-            width,
-            height,
-            &focal,
-            "<stdin>",
-            cli.verbose,
-            cli.ascii,
-        )?;
+        let (is_blurry, _results, _size, _width, _height, _focal) = grepfuzz::process_image_buffer(&img, detectors.as_slice());
+        if is_blurry {
+            stdout.write_all(&img)?;
+        }
         return Ok(());
     }
 
