@@ -31,6 +31,8 @@ run-find-std:
 
 run-find-file:
 	pwd
+	ls -la .
+	ls -la ./images
 	find ./images -type f -iname '*.jpg' -print0 | xargs -0 -I {} -n 1 cargo run -- -f {} --verbose
 
 run-file-verbose:
