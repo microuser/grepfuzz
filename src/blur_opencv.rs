@@ -25,9 +25,9 @@ impl BlurDetector for OpenCvLaplacianDetector {
     fn detect(&self, img: &ImageBuffer<Luma<u8>, Vec<u8>>) -> (f64, bool) {
         use opencv::{core, imgproc, prelude::*};
         // Convert image::ImageBuffer to OpenCV Mat
-        let (width, height) = (img.width() as i32, img.height() as i32);
+        let (_width, _height) = (img.width() as i32, img.height() as i32);
         // Convert image::ImageBuffer to OpenCV Mat
-        let (width, height) = (img.width() as i32, img.height() as i32);
+        let (_width, _height) = (img.width() as i32, img.height() as i32);
         let mut mat = unsafe {
             core::Mat::new_rows_cols(height, width, core::CV_8UC1)
                 .expect("Mat allocation failed")
