@@ -52,6 +52,15 @@ run-file-verbose:
 run-photoboothblack:
 	cargo run -- --ascii -f ./images/photoboothblack.jpg
 
+test-find-std:
+	@mkdir -p test
+	@$(MAKE) run-find-std > test/actual_run_find_std.txt 2>&1
+	@if [ ! -f test/expected_run_find_std.txt ]; then \
+		echo "No expected output found. Please create test/expected_run_find_std.txt."; \
+		exit 1; \
+	fi
+	@diff -u test/expected_run_find_std.txt test/actual_run_find_std.txt && echo "PASS: run-find-std output matches expected." || (echo "FAIL: run-find-std output differs from expected." && exit 1)
+
 install:
 	@if [ "$(shell uname)" = "Darwin" ]; then \
 		command -v brew >/dev/null 2>&1 || { echo >&2 "Homebrew not found. Please install Homebrew first."; exit 1; }; \
